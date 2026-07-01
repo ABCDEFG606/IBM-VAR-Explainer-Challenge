@@ -258,8 +258,8 @@
 
     <script>
         // --- 1. YOUR 3 API ENDPOINTS ---
-        const LANGFLOW_API_URL = "YOUR_LANGFLOW_API_URL";
-        const NEWS_API_KEY = "YOUR_ACTUAL_API_KEY_HERE"; 
+        const LANGFLOW_API_URL = "LANGFLOW_API_URL";
+        const NEWS_API_KEY = "YOUR_NEWS_API_KEY"; 
         
         let historicalContext = "";
         let liveNewsContext = "";
@@ -305,6 +305,76 @@
         
         fetchSportsDB();
         fetchLiveNews();
+
+        // --- NEW: DYNAMIC CANVAS RENDERER ---
+        function renderDynamicPitch(visuals, canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            const w = canvas.width;
+            const h = canvas.height;
+            
+            // Draw Pitch Background
+            ctx.fillStyle = '#2e8b57';
+            ctx.fillRect(0, 0, w, h);
+            
+            // Draw Center Line & Circle
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(w/2, 0);
+            ctx.lineTo(w/2, h);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(w/2, h/2, 35, 0, 2*Math.PI);
+            ctx.stroke();
+
+            // Coordinate Translator
+            function getCoords(locationStr) {
+                let x = w / 2; 
+                let y = h / 2;
+                if (!locationStr) return {x, y};
+                let str = locationStr.toLowerCase();
+                
+                // X Axis
+                if (str.includes('defensive')) x = w * 0.2;
+                if (str.includes('middle') || str.includes('center')) x = w * 0.5;
+                if (str.includes('attacking')) x = w * 0.8;
+                if (str.includes('box')) x = w * 0.9;
+                if (str.includes('penalty_spot')) x = w * 0.85;
+                
+                // Y Axis
+                if (str.includes('touchline') || str.includes('top')) y = h * 0.2;
+                if (str.includes('bottom')) y = h * 0.8;
+                
+                return { x, y };
+            }
+
+            const attackerPos = getCoords(visuals.attacker);
+            const defenderPos = getCoords(visuals.defender);
+            const ballPos = getCoords(visuals.ball_start);
+            
+            // Draw Defender (Red)
+            ctx.fillStyle = '#ff4444';
+            ctx.beginPath();
+            ctx.arc(defenderPos.x, defenderPos.y, 10, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Draw Attacker (Blue)
+            ctx.fillStyle = '#4444ff';
+            ctx.beginPath();
+            ctx.arc(attackerPos.x, attackerPos.y, 10, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Draw Ball (White)
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(ballPos.x, ballPos.y, 5, 0, 2 * Math.PI);
+            ctx.fill();
+        }
 
         // --- 3. ANIMATION ROUTER ---
         function getAnimationHTML(type) {
@@ -352,6 +422,9 @@
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             const finalPrompt = `User Scenario: ${scenario}\n\n[LIVE CONTEXT] ${historicalContext} ${liveNewsContext}`;
+            
+            // Unique ID for mapping multiple canvas generations in one thread
+            const currentCanvasId = 'tactical-canvas-' + Date.now();
 
             try {
                 const payload = { "input_value": finalPrompt, "output_type": "chat", "input_type": "chat" };
@@ -359,7 +432,7 @@
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        'x-api-key': 'YOUR_ACTUAL_API_KEY_HERE' // <--- PASTE YOUR API KEY HERE
+                        'x-api-key': 'YOUR LANGFLOW API KEY HERE' // <--- PASTE YOUR API KEY HERE
                     },
                     body: JSON.stringify(payload)
                 });
@@ -416,6 +489,17 @@
                                     <ul class="chunk-list">${mapChunks(parsedJSON.rules_expert)}</ul>
                                     ${animHTML}
                                     ${ruleVisualHtml}
+                                    
+                                    <!-- NEW DYNAMIC CANVAS MAPPING HTML -->
+                                    ${parsedJSON.dynamic_visuals ? `
+                                    <div style="margin-top: 15px;">
+                                        <canvas id="${currentCanvasId}" width="600" height="200" style="width: 100%; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);"></canvas>
+                                        <div class="rule-visual-caption" style="border-color: #ffd700; background: rgba(255,215,0,0.05);">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; color: #ffd700;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                            <div><strong>Spatial Breakdown:</strong> ${parsedJSON.dynamic_visuals.visual_caption}</div>
+                                        </div>
+                                    </div>
+                                    ` : ''}
                                 </div>
                                 
                                 <div class="card">
@@ -443,12 +527,26 @@
                                     <h3>Match Impact</h3>
                                     <ul class="chunk-list" style="color: #fff;">${mapChunks(parsedJSON.match_impact)}</ul>
                                 </div>
+                                
+                                <!-- NEW WHY IT MATTERS CARD -->
+                                ${parsedJSON.why_it_matters ? `
+                                <div class="card" style="grid-column: 1 / -1; border-top: 4px solid #ffcc00; background: rgba(255, 204, 0, 0.05);">
+                                    <h3><span style="color: #ffcc00; margin-right: 8px;">★</span> Why It Matters</h3>
+                                    <p style="font-size: 0.95rem; line-height: 1.6; color: #d0dcd5;">${parsedJSON.why_it_matters}</p>
+                                </div>
+                                ` : ''}
 
                             </div>
                         </div>
                     `;
                 }
+                
                 threadContainer.appendChild(assistantRow);
+
+                // --- TRIGGER THE CANVAS RENDER AFTER HTML IS INJECTED ---
+                if (parsedJSON.response_type !== "casual" && parsedJSON.dynamic_visuals) {
+                    renderDynamicPitch(parsedJSON.dynamic_visuals, currentCanvasId);
+                }
 
             } catch (error) {
                 console.error(error);
