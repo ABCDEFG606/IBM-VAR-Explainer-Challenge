@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Match Analyst | Premium Football Intelligence</title>
+    <style>
+        :root {
+            --bg-base: #040a07;
+            --bg-obsidian: #020604;
+            --bg-panel: rgba(10, 26, 18, 0.65);
+            --bg-panel-solid: #0a1a12;
+            --accent-neon-green: #00ff66;
+            --accent-glow: rgba(0, 255, 102, 0.2);
+            --accent-red: #ff3333;
+            --accent-blue: #00bfff;
+            --accent-gold: #ffd700;
+            --text-main: #ffffff;
+            --text-muted: #a3b8aa;
+            --border-glass: rgba(255, 255, 255, 0.1);
+            --pitch-dark: #0f3d1e;
+            --pitch-light: #124a24;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden; 
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        .bg-stadium {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(to bottom, rgba(4, 10, 7, 0.85) 0%, rgba(2, 6, 4, 0.95) 100%),
+                        url('https://images.unsplash.com/photo-1518605368461-1ee125b2a095?q=80&w=1920');
+            background-size: cover; background-position: center; z-index: -2;
+        }
+
+        .top-bar { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; padding: 1rem 2.5rem; background: rgba(4, 10, 7, 0.75); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-bottom: 1px solid var(--border-glass); }
+        .brand-container { display: flex; align-items: center; gap: 15px; }
+        .brand-title { font-size: 1.5rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: #ffffff; }
+        .brand-title span { color: var(--accent-neon-green); }
+        .clock { font-size: 1rem; font-weight: 600; color: var(--text-muted); letter-spacing: 1px; }
+
+        .chat-container { flex-grow: 1; width: 100%; max-width: 100%; display: flex; flex-direction: column; padding: 0; min-height: 0; }
+        
+        .chat-viewport { flex-grow: 1; width: 100%; display: flex; flex-direction: column; gap: 2.5rem; overflow-y: auto; padding: 1.5rem 0 3rem 0; scroll-behavior: smooth; }
+        
+        .chat-viewport::-webkit-scrollbar { width: 6px; }
+        .chat-viewport::-webkit-scrollbar-track { background: transparent; }
+        .chat-viewport::-webkit-scrollbar-thumb { background: rgba(0, 255, 102, 0.25); border-radius: 4px; }
+
+        /* WIDER CONTENT AREA FOR DASHBOARDS */
+        #conversationalThread, #loader { max-width: 1200px; width: 100%; margin: 0 auto; padding: 0 1.5rem; }
+
+        #welcomeHero { max-width: 600px; width: 100%; margin: auto; padding: 0 1.5rem; text-align: center; }
+        .ai-welcome-hero h2 { font-size: 2.2rem; font-weight: 700; letter-spacing: 1px; margin-bottom: 1rem; color: #ffffff; text-transform: uppercase;}
+        .ai-welcome-hero p { color: var(--text-muted); font-size: 1.05rem; line-height: 1.6; }
+
+        .message-row { display: flex; width: 100%; margin-top: 1rem; animation: bubbleFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes bubbleFade { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .message-row.user { justify-content: flex-end; }
+        .message-row.assistant { justify-content: flex-start; }
+        
+        .chat-bubble { max-width: 85%; padding: 1.25rem 1.5rem; border-radius: 16px; font-size: 0.95rem; line-height: 1.6; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .chat-bubble.user-msg { background: var(--bg-panel-solid); color: var(--text-main); border: 1px solid rgba(0,255,102,0.3); border-bottom-right-radius: 4px; }
+        .chat-bubble.casual-msg { background: rgba(10, 26, 18, 0.85); color: var(--text-main); border: 1px solid rgba(0,255,102,0.2); border-bottom-left-radius: 4px; }
+
+        .ai-response-wrapper { width: 100%; display: flex; flex-direction: column; gap: 1.5rem; }
+        .ai-header-tag { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-neon-green); font-weight: 700; }
+        
+        .output-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; width: 100%; }
+        
+        .card { background: var(--bg-panel); border: 1px solid var(--border-glass); backdrop-filter: blur(12px); border-radius: 14px; padding: 1.5rem; display: flex; flex-direction: column; }
+        .card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.75rem; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;}
+        .card h3::before { content: ''; width: 6px; height: 6px; background: var(--accent-neon-green); border-radius: 50%; }
+        
+        .chunk-list { list-style: none; flex-grow: 1; padding: 0; font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; }
+        .chunk-list li { margin-bottom: 12px; position: relative; padding-left: 15px; }
+        .chunk-list li::before { content: '►'; position: absolute; left: 0; top: 1px; font-size: 0.7rem; color: var(--accent-neon-green); }
+        
+        .incident-list { list-style-type: decimal; padding-left: 20px; color: #ffffff; font-size: 0.95rem; line-height: 1.6; }
+        .incident-list li { margin-bottom: 10px; padding-left: 5px; font-weight: 500;}
+        .incident-list li::marker { color: var(--accent-neon-green); font-weight: bold; }
+
+        .law-badge { background: rgba(255, 215, 0, 0.15); color: var(--accent-gold); font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255, 215, 0, 0.4); margin-left: auto; letter-spacing: 0.5px; }
+        .real-example { margin-top: 15px; padding: 12px; background: rgba(255, 255, 255, 0.04); border-left: 3px solid var(--accent-blue); font-size: 0.85rem; color: #d0dcd5; font-style: italic; border-radius: 0 6px 6px 0; }
+        .rule-visual-caption { font-size: 0.85rem; color: var(--text-main); font-weight: 500; padding: 12px; background: rgba(0, 255, 102, 0.08); border: 1px solid rgba(0, 255, 102, 0.3); border-radius: 8px; margin-top: 15px; display: flex; align-items: flex-start; gap: 10px; line-height: 1.5; }
+        
+        .impact-card { grid-column: 1 / -1; background: linear-gradient(135deg, rgba(10, 26, 18, 0.8) 0%, rgba(2, 6, 4, 0.9) 100%); border: 1px solid rgba(0, 255, 102, 0.3); }
+        
+        /* SMALLER CHAT BAR */
+        .input-wrapper { flex-shrink: 0; max-width: 750px; width: calc(100% - 3rem); margin: 0 auto 1.5rem auto; border-radius: 22px; padding: 2px; background: rgba(0, 255, 102, 0.2); box-shadow: 0 0 15px rgba(0, 255, 102, 0.15), 0 0 30px rgba(0, 255, 102, 0.05); animation: breatheGlow 3s ease-in-out infinite alternate; }
+        @keyframes breatheGlow { 0% { box-shadow: 0 0 10px rgba(0, 255, 102, 0.1); } 100% { box-shadow: 0 0 25px rgba(0, 255, 102, 0.3), 0 0 45px rgba(0, 255, 102, 0.1); } }
+
+        .input-dock { background: #060c09; border-radius: 20px; padding: 0.5rem 0.75rem; display: flex; flex-direction: column; gap: 0.25rem; }
+        textarea { width: 100%; height: 50px; background: transparent; border: none; color: var(--text-main); font-family: inherit; padding: 0.25rem 0.5rem; font-size: 1rem; resize: none; outline: none; line-height: 1.5; }
+        textarea::placeholder { color: #587060; }
+        
+        .input-controls { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem; padding-left: 0.5rem; }
+        .input-hint { font-size: 0.75rem; color: #587060; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;}
+        
+        .btn-analyse { background: var(--text-main); color: var(--bg-obsidian); font-family: inherit; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.5px; border: none; padding: 0.65rem 1.5rem; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; }
+        .btn-analyse:hover { background: var(--accent-neon-green); box-shadow: 0 0 15px var(--accent-glow); transform: translateY(-2px); }
+        .btn-analyse:active { transform: scale(0.95); }
+        .btn-analyse:disabled { background: #112218; color: #3d5245; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        /* --- SMALLER BOUNCING & ROTATING FOOTBALL LOADER --- */
+        .loader-wrapper { display: none; width: 100%; justify-content: center; padding: 4rem 0; }
+        .loading-box { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; }
+        
+        .classic-ball-loader {
+            width: 45px; 
+            height: 45px;
+            animation: bounceRotate 1.2s infinite;
+            filter: drop-shadow(0px 0px 15px var(--accent-neon-green));
+        }
+        
+        @keyframes bounceRotate {
+            0% { transform: translateY(0) rotate(0deg); animation-timing-function: ease-out; }
+            50% { transform: translateY(-40px) rotate(180deg); animation-timing-function: ease-in; }
+            100% { transform: translateY(0) rotate(360deg); }
+        }
+        
+        .loader-text { font-weight: 700; font-size: 0.9rem; letter-spacing: 4px; color: var(--accent-neon-green); animation: blink 1.2s infinite alternate; font-family: system-ui, sans-serif;}
+        @keyframes blink { 0% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        /* --- "TOP END" TACTICAL BOARD ANIMATIONS --- */
+        .anim-box { 
+            height: 120px; 
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 10px; 
+            margin-top: 15px; 
+            position: relative; 
+            overflow: hidden; 
+            background: repeating-linear-gradient(0deg, var(--pitch-dark), var(--pitch-dark) 20px, var(--pitch-light) 20px, var(--pitch-light) 40px);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .chip { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff; position: absolute; z-index: 2; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+        .chip.atk { background-color: var(--accent-blue); }
+        .chip.def { background-color: var(--accent-red); }
+        .chip.ref { background-color: #ffd700; border-color: #000; }
+        .football { width: 10px; height: 10px; background: #fff; border-radius: 50%; position: absolute; z-index: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .icon-pop { position: absolute; font-size: 1.5rem; opacity: 0; z-index: 10; font-family: "Segoe UI Emoji", sans-serif; }
+
+        .anim-foul .atk { top: 40px; left: 20%; animation: foulAtk 2.5s infinite; }
+        .anim-foul .def { top: 40px; right: 20%; animation: foulDef 2.5s infinite; }
+        .anim-foul .football { top: 44px; left: 25%; animation: foulAtk 2.5s infinite; }
+        .anim-foul .icon-pop { top: 20px; left: 45%; animation: foulPop 2.5s infinite; }
+        .anim-foul .icon-pop::after { content: "💥"; }
+        @keyframes foulAtk { 0% { left: 20%; } 40%, 100% { left: 45%; } }
+        @keyframes foulDef { 0% { right: 20%; } 40%, 100% { right: 45%; } }
+        @keyframes foulPop { 0%, 39% { opacity: 0; transform: scale(0.5); } 45%, 80% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0; } }
+
+        .anim-offside .line { width: 2px; height: 100%; background: var(--accent-red); position: absolute; left: 70%; opacity: 0.5; }
+        .anim-offside .def { top: 20px; left: 67%; }
+        .anim-offside .atk { top: 60px; left: 50%; animation: offsideRun 3s infinite; }
+        .anim-offside .football { top: 24px; left: 20%; animation: offsidePass 3s infinite; }
+        .anim-offside .icon-pop { top: 40px; left: 72%; animation: flagPop 3s infinite; }
+        .anim-offside .icon-pop::after { content: "🚩"; }
+        @keyframes offsideRun { 0%, 20% { left: 50%; } 50%, 100% { left: 80%; } }
+        @keyframes offsidePass { 0%, 40% { left: 20%; top: 24px;} 60%, 100% { left: 75%; top: 64px;} }
+        @keyframes flagPop { 0%, 55% { opacity: 0; transform: translateY(10px); } 65%, 90% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
+
+        .anim-red_card .def { top: 50px; left: 30%; }
+        .anim-red_card .ref { top: 50px; left: 60%; animation: refWalk 3s infinite; }
+        .anim-red_card .card-rect { width: 10px; height: 14px; background: var(--accent-red); position: absolute; border-radius: 1px; opacity: 0; }
+        .anim-red_card .card-rect { animation: cardShow 3s infinite; }
+        @keyframes refWalk { 0%, 20% { left: 60%; } 40%, 100% { left: 40%; } }
+        @keyframes cardShow { 0%, 45% { opacity: 0; top: 50px; left: 40%; } 50%, 90% { opacity: 1; top: 30px; left: 40%; } 100% { opacity: 0; } }
+
+        .anim-penalty .box { width: 40px; height: 80px; border: 2px solid rgba(255,255,255,0.5); border-right: none; position: absolute; left: 0; top: 20px; }
+        .anim-penalty .goal { width: 10px; height: 40px; border: 3px solid #fff; border-right: none; position: absolute; left: 0; top: 40px; }
+        .anim-penalty .def { top: 50px; left: 15px; animation: goalieDive 3s infinite; }
+        .anim-penalty .atk { top: 50px; left: 70px; }
+        .anim-penalty .football { top: 54px; left: 60px; animation: penKick 3s infinite; }
+        @keyframes penKick { 0%, 30% { left: 60px; top: 54px; } 50%, 100% { left: 5px; top: 45px; } }
+        @keyframes goalieDive { 0%, 30% { top: 50px; } 50%, 100% { top: 70px; } }
+
+        .anim-handball .def { top: 50px; left: 50%; }
+        .anim-handball .football { top: 54px; left: 10%; animation: ballBlock 2.5s infinite; }
+        .anim-handball .icon-pop { top: 25px; left: 45%; animation: handPop 2.5s infinite; }
+        .anim-handball .icon-pop::after { content: "✋"; color: var(--accent-red); }
+        @keyframes ballBlock { 0% { left: 10%; } 40%, 100% { left: 42%; } }
+        @keyframes handPop { 0%, 39% { opacity: 0; } 45%, 80% { opacity: 1; filter: drop-shadow(0 0 5px red); } 100% { opacity: 0; } }
+
+        .anim-goal_review { background: #000; padding: 10px; }
+        .anim-goal_review .monitor { width: 100%; height: 100%; border: 2px solid #555; border-radius: 4px; position: relative; overflow: hidden; background: #111; display: flex; align-items: center; justify-content: center; }
+        .anim-goal_review .goal-line { width: 2px; height: 100%; background: #fff; position: absolute; left: 70%; }
+        .anim-goal_review .football { width: 14px; height: 14px; top: 40%; animation: varReplay 3s infinite; }
+        .anim-goal_review .decision { position: absolute; font-weight: 800; font-size: 1.2rem; color: var(--accent-red); opacity: 0; animation: varText 3s infinite; letter-spacing: 2px; }
+        @keyframes varReplay { 0%, 20% { left: 30%; } 50%, 70% { left: 65%; } 100% { left: 30%; } }
+        @keyframes varText { 0%, 55% { opacity: 0; } 60%, 90% { opacity: 1; } 100% { opacity: 0; } }
+
+        .anim-generic .atk { top: 30px; left: 20%; animation: moveGen1 4s infinite alternate ease-in-out; }
+        .anim-generic .def { top: 70px; left: 60%; animation: moveGen2 3.5s infinite alternate ease-in-out; }
+        .anim-generic .football { top: 34px; left: 28%; animation: moveGen1 4s infinite alternate ease-in-out; }
+        @keyframes moveGen1 { to { left: 60%; top: 50px; } }
+        @keyframes moveGen2 { to { left: 30%; top: 40px; } }
+
+        @media (max-width: 900px) { .output-grid { grid-template-columns: 1fr; } .chat-bubble { max-width: 95%; } }
+    </style>
+</head>
+<body>
+
+    <div class="bg-stadium"></div>
+
+    <div class="top-bar">
+        <div class="brand-container">
+            <div class="brand-title">NEXUS<span>PITCH</span></div>
+        </div>
+        <div class="status-container">
+            <div class="clock" id="liveClock">00:00:00</div>
+        </div>
+    </div>
+
+    <div class="chat-container">
+        <div class="chat-viewport" id="chatViewport">
+            <div class="ai-welcome-hero" id="welcomeHero">
+                <h2>Play-by-Play Intelligence</h2>
+                <p>Submit a match scenario or rule inquiry. The Multi-Agent Engine will analyze the play, cite official IFAB Laws, and build a tactical breakdown.</p>
+            </div>
+            
+            <div id="conversationalThread"></div>
+            
+            <div class="loader-wrapper" id="loader">
+                <div class="loading-box">
+                    <!-- SMALLER, BOUNCING & ROTATING 2D FOOTBALL -->
+                    <svg class="classic-ball-loader" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="256" cy="256" r="250" fill="#ffffff" stroke="#111" stroke-width="12"/>
+                        <path d="M256 94.6l-71.1 51.6 27.2 83.6h87.8l27.2-83.6-71.1-51.6zm-113.6 82.5l-84.5 10.3c15.1 66.8 53.6 123.6 105.7 160.8l20.4-82.6-41.6-88.5zm227.2 0l-41.6 88.5 20.4 82.6c52.1-37.2 90.6-94 105.7-160.8l-84.5-10.3zm-113.6 177.3l-59 81.3c18.5 4.5 38.3 6.9 59 6.9s40.5-2.4 59-6.9l-59-81.3zM94.6 256c0-21.7 2.8-42.7 8-62.7l-91.1-11.1C4.2 205.7 0 230.4 0 256c0 33.6 6.5 65.6 18.3 95.3l94-35.1-17.7-60.2zm322.8 0l-17.7 60.2 94 35.1c11.8-29.7 18.3-61.7 18.3-95.3 0-25.6-4.2-50.3-11.5-73.8l-91.1 11.1c5.2 20 8 41 8 62.7z" fill="#111111"/>
+                    </svg>
+                    <div class="loader-text">ANALYZING PLAY...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-wrapper">
+            <div class="input-dock">
+                <textarea id="scenarioInput" placeholder="Describe the foul, offside, or scenario in detail..."></textarea>
+                <div class="input-controls">
+                    <div class="input-hint">Press Enter to Analyze</div>
+                    <button class="btn-analyse" id="analyseBtn" onclick="runAnalysis()">
+                        Execute Analysis
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. YOUR 3 API ENDPOINTS ---
+        const LANGFLOW_API_URL = "YOUR_LANGFLOW_API_URL";
+        const NEWS_API_KEY = "YOUR_ACTUAL_API_KEY_HERE"; 
+        
+        let historicalContext = "";
+        let liveNewsContext = "";
+
+        document.getElementById('scenarioInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); 
+                document.getElementById('analyseBtn').click();
+            }
+        });
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('liveClock').innerText = now.toLocaleTimeString('en-US', { hour12: false });
+        }
+        setInterval(updateClock, 1000); updateClock();
+
+        // --- 2. FETCH REAL-TIME DATA (INVISIBLE TO UI, FEEDS THE AI) ---
+        async function fetchSportsDB() {
+            try {
+                const response = await fetch('https://www.thesportsdb.com/api/v1/json/3/eventslast.php?id=4328');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.results && data.results.length > 0) {
+                        historicalContext = `Recent match metric: ${data.results[0].strEvent} concluded ${data.results[0].intHomeScore}-${data.results[0].intAwayScore}.`;
+                    }
+                }
+            } catch (error) { console.log("SportsDB error"); }
+        }
+
+        async function fetchLiveNews() {
+            try {
+                const response = await fetch(`https://newsapi.org/v2/top-headlines?category=sports&q=football&apiKey=${NEWS_API_KEY}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.articles && data.articles.length > 0) {
+                        const headlines = data.articles.slice(0, 3).map(a => a.title).join(" | ");
+                        liveNewsContext = `Trending News: ${headlines}.`;
+                    }
+                }
+            } catch (error) { console.log("News stream error"); }
+        }
+        
+        fetchSportsDB();
+        fetchLiveNews();
+
+        // --- 3. ANIMATION ROUTER ---
+        function getAnimationHTML(type) {
+            switch(type) {
+                case 'goal_review': return `<div class="anim-goal_review anim-box"><div class="monitor"><div class="goal-line"></div><div class="football"></div><div class="decision">NO GOAL</div></div></div>`;
+                case 'foul': return `<div class="anim-foul anim-box"><div class="chip atk"></div><div class="football"></div><div class="chip def"></div><div class="icon-pop"></div></div>`;
+                case 'offside': return `<div class="anim-offside anim-box"><div class="line"></div><div class="chip def"></div><div class="chip atk"></div><div class="football"></div><div class="icon-pop"></div></div>`;
+                case 'red_card': return `<div class="anim-red_card anim-box"><div class="chip def"></div><div class="chip ref"></div><div class="card-rect"></div></div>`;
+                case 'penalty': return `<div class="anim-penalty anim-box"><div class="box"></div><div class="goal"></div><div class="chip def"></div><div class="chip atk"></div><div class="football"></div></div>`;
+                case 'handball': return `<div class="anim-handball anim-box"><div class="chip def"></div><div class="football"></div><div class="icon-pop"></div></div>`;
+                default: return `<div class="anim-generic anim-box"><div class="chip atk"></div><div class="football"></div><div class="chip def"></div></div>`;
+            }
+        }
+
+        function mapChunks(arr) {
+            if (!arr || !Array.isArray(arr) || arr.length === 0) return '<li>Data processing incomplete.</li>';
+            return arr.map(chunk => `<li>${chunk}</li>`).join('');
+        }
+
+        // --- 4. MAIN ANALYSIS ENGINE ---
+        async function runAnalysis() {
+            const inputEl = document.getElementById('scenarioInput');
+            const btn = document.getElementById('analyseBtn');
+            const loader = document.getElementById('loader');
+            const threadContainer = document.getElementById('conversationalThread');
+            const welcomeHero = document.getElementById('welcomeHero');
+            const viewport = document.getElementById('chatViewport');
+            
+            const scenario = inputEl.value.trim();
+            if (!scenario) return;
+
+            welcomeHero.style.display = "none";
+
+            const userRow = document.createElement('div');
+            userRow.className = "message-row user";
+            userRow.innerHTML = `<div class="chat-bubble user-msg">${scenario}</div>`;
+            threadContainer.appendChild(userRow);
+            viewport.scrollTop = viewport.scrollHeight;
+
+            inputEl.value = "";
+            btn.disabled = true;
+            loader.style.display = "flex";
+            viewport.scrollTop = viewport.scrollHeight;
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            const finalPrompt = `User Scenario: ${scenario}\n\n[LIVE CONTEXT] ${historicalContext} ${liveNewsContext}`;
+
+            try {
+                const payload = { "input_value": finalPrompt, "output_type": "chat", "input_type": "chat" };
+                const response = await fetch(LANGFLOW_API_URL, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-api-key': 'YOUR_ACTUAL_API_KEY_HERE' // <--- PASTE YOUR API KEY HERE
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error(`Inference Error: ${response.status}`);
+                const data = await response.json();
+                
+                let aiText = data.outputs[0].outputs[0].results.message.text || data.outputs[0].outputs[0].outputs.message.message.text;
+                if (!aiText) throw new Error("Empty payload.");
+
+                // Nuclear Scrub: Extracts pure JSON regardless of markdown or conversational text
+                let rawJSON = aiText.substring(aiText.indexOf("{"), aiText.lastIndexOf("}") + 1);
+                const parsedJSON = JSON.parse(rawJSON);
+
+                const assistantRow = document.createElement('div');
+                assistantRow.className = "message-row assistant";
+                
+                if (parsedJSON.response_type === "casual" || parsedJSON.response_type === "follow_up") {
+                    
+                    const casualMsg = parsedJSON.text_response || '';
+                    const followUpHtml = parsedJSON.follow_up_prompt ? `<div style="margin-top:12px; font-weight:700; color:var(--accent-neon-green);">${parsedJSON.follow_up_prompt}</div>` : '';
+                    assistantRow.innerHTML = `<div class="chat-bubble casual-msg">${casualMsg}${followUpHtml}</div>`;
+                
+                } else {
+                    
+                    const lawBadge = parsedJSON.law_reference ? `<span class="law-badge">${parsedJSON.law_reference}</span>` : '';
+                    const realExampleHtml = parsedJSON.real_example ? `<div class="real-example"><strong>Historic Precedent:</strong> ${parsedJSON.real_example}</div>` : '';
+                    
+                    const ruleVisualHtml = parsedJSON.rule_visual ? `
+                        <div class="rule-visual-caption">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            <div><strong>Director's Cue:</strong> ${parsedJSON.rule_visual}</div>
+                        </div>` : '';
+                    
+                    const animHTML = getAnimationHTML(parsedJSON.animation_type);
+                    
+                    assistantRow.innerHTML = `
+                        <div class="ai-response-wrapper">
+                            <div class="ai-header-tag">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                                Multi-Agent Inference Complete
+                            </div>
+                            <div class="output-grid">
+                                
+                                <div class="card" style="grid-column: 1 / -1; border-color: rgba(0, 255, 102, 0.4); box-shadow: 0 4px 20px rgba(0,255,102,0.08);">
+                                    <h3>Play-by-Play Breakdown</h3>
+                                    <ol class="incident-list">
+                                        ${(parsedJSON.incident_steps || []).map(step => `<li>${step}</li>`).join('')}
+                                    </ol>
+                                </div>
+
+                                <div class="card" style="grid-column: 1 / span 2;">
+                                    <h3>The Official Rule (IFAB) ${lawBadge}</h3>
+                                    <ul class="chunk-list">${mapChunks(parsedJSON.rules_expert)}</ul>
+                                    ${animHTML}
+                                    ${ruleVisualHtml}
+                                </div>
+                                
+                                <div class="card">
+                                    <h3>VAR Protocol</h3>
+                                    <ul class="chunk-list">${mapChunks(parsedJSON.var_official)}</ul>
+                                </div>
+
+                                <div class="card">
+                                    <h3>Tactical Impact</h3>
+                                    <ul class="chunk-list">${mapChunks(parsedJSON.tactical_analyst)}</ul>
+                                    ${realExampleHtml}
+                                </div>
+                                
+                                <div class="card">
+                                    <h3>Referee's Real-Time POV</h3>
+                                    <ul class="chunk-list">${mapChunks(parsedJSON.referee_pov)}</ul>
+                                </div>
+                                
+                                <div class="card">
+                                    <h3>Alternative Outcome</h3>
+                                    <ul class="chunk-list">${mapChunks(parsedJSON.alternative_outcome)}</ul>
+                                </div>
+
+                                <div class="card impact-card">
+                                    <h3>Match Impact</h3>
+                                    <ul class="chunk-list" style="color: #fff;">${mapChunks(parsedJSON.match_impact)}</ul>
+                                </div>
+
+                            </div>
+                        </div>
+                    `;
+                }
+                threadContainer.appendChild(assistantRow);
+
+            } catch (error) {
+                console.error(error);
+                const errorRow = document.createElement('div');
+                errorRow.className = "message-row assistant";
+                errorRow.innerHTML = `<div class="chat-bubble" style="color: #ff4444; border: 1px solid rgba(255,68,68,0.3); background: rgba(255,68,68,0.1);"><strong>System fault processing JSON packet.</strong> The AI generated an invalid response. Check LangFlow endpoint.</div>`;
+                threadContainer.appendChild(errorRow);
+            } finally {
+                loader.style.display = "none";
+                btn.disabled = false;
+                
+                setTimeout(() => {
+                    viewport.scrollTop = viewport.scrollHeight;
+                }, 100);
+            }
+        }
+    </script>
+</body>
+</html>
